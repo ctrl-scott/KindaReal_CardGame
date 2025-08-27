@@ -170,3 +170,5 @@ Enable or disable a DOM control, updating ARIA attributes.
 - **BANK actions** are modular and can be extended by adding new objects to `BANK_ACTIONS`.
 - **Randomizers** only activate if no type advantage is present.
 
+[https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190](https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190)
+
