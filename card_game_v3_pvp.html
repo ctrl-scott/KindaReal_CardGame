@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Game Starter • 50‑Card Expanded Deck + Economy</title>
+  <style>
+    :root{
+      --bg:#ffffff; --ink:#111318; --muted:#5b6270; --border:#e7e8ee;
+      --surface:#f7f7fb; --accent:#00c853; --p1:#3b82f6; --p2:#ef4444;
+      --radius:16px; --shadow:0 10px 30px rgba(17,19,24,.10);
+      --economy:#f59e0b; /* gold for Economy */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:var(--ink); background:var(--surface)}
+    .wrap{max-width:1200px; margin:auto; padding:24px}
+    h1{font-size:24px; margin:0 0 8px}
+    .sub{color:var(--muted); margin:0 0 20px}
+
+    /* Three columns: left hand, center controls+arena, right hand */
+    .row{display:grid; grid-template-columns: 1fr 460px 1fr; gap:18px}
+    .panel{background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .panel header{padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700}
+    .panel .body{padding:12px 14px}
+    .controls{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px}
+    button{appearance:none; border:1px solid var(--border); border-radius:12px; padding:10px 14px; background:#fff; cursor:pointer; font-weight:600}
+    button.primary{background:var(--accent); color:#fff; border-color:transparent}
+    button:disabled{opacity:.55; cursor:not-allowed}
+    select, input[type="checkbox"]{padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#fff}
+    label.inline{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+
+    .cols{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px}
+    .stack{min-height:160px}
+    .stack h3{font-size:14px; color:var(--muted); margin:0 0 6px}
+    .cards{display:flex; flex-wrap:wrap; gap:10px}
+
+    .card{width:120px; aspect-ratio: 2/3; background:#fff; border:1.5px solid var(--border); border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; display:flex; flex-direction:column}
+    .card .art{flex:1; border-bottom:1px solid var(--border); display:grid; place-items:center; position:relative}
+    .card .meta{padding:8px 10px}
+    .card .name{font-size:14px; font-weight:700; line-height:1.25}
+    .card .tags{font-size:11px; color:var(--muted)}
+    .card.clickable{outline:2px dashed var(--accent); outline-offset:2px; cursor:pointer}
+
+    .pwrap{display:grid; grid-template-columns:1fr; gap:12px}
+    .pbox{border:1px solid var(--border); border-radius:12px; padding:10px}
+    .pbox h4{margin:0 0 6px; font-size:14px}
+    .p1 .pbox h4{color:var(--p1)}
+    .p2 .pbox h4{color:var(--p2)}
+
+    .scoreline{display:flex; gap:10px; font-size:13px; color:var(--muted)}
+    .scoreline .v{font-weight:700; color:var(--ink)}
+
+    .battlefield{display:grid; grid-template-columns:1fr 1fr; gap:16px; padding-top:8px}
+    .turn{margin-top:6px; font-size:13px; color:var(--muted)}
+    .log{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:13px; color:#2b2f36; max-height:280px; overflow:auto; white-space:pre-wrap}
+
+    @media (max-width:1100px){
+      .row{grid-template-columns:1fr}
+      .cards .card{width:104px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Card Game Starter</h1>
+    <p class="sub">Original three‑type battle system retained, plus Life Event and Economy cards. Life/Economy can be toggled to **affect the opponent** (PvP effects). SCORE is round based; BANK persists.</p>
+
+    <div class="row">
+      <!-- Left: Player A Hand -->
+      <div class="col-left">
+        <div class="panel">
+          <header>Player A</header>
+          <div class="body pwrap">
+            <div class="scoreline">SCORE: <span id="scoreA" class="v">0</span> · BANK: <span id="bankA" class="v">0</span></div>
+            <div id="hand1" class="cards"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Controls, Deck/Discard, Battlefield, Log -->
+      <div class="col-center">
+        <div class="panel">
+          <header>Setup</header>
+          <div class="body">
+            <div class="controls">
+              <label for="mode">Theme:&nbsp;</label>
+              <select id="mode">
+                <option value="realistic">Realistic</option>
+                <option value="fantasy">Fantasy</option>
+              </select>
+              <button id="makeDeck">Build Deck</button>
+              <button id="shuffle" class="primary" disabled>Shuffle</button>
+              <button id="deal" disabled>Deal 8 Cards Each</button>
+              <label class="inline"><input type="checkbox" id="autoReset" checked />Auto reset SCORE on Next Round</label>
+              <button id="nextRound" disabled>Next Round</button>
+              <button id="resetScores" disabled>Reset Scores</button>
+            </div>
+            <div class="controls">
+              <label for="bankAction">Spend BANK:&nbsp;</label>
+              <select id="bankAction"></select>
+              <button id="spendBank" disabled>Spend (Current Player)</button>
+            </div>
+            <div class="controls">
+              <label for="rngMode">Randomizer:&nbsp;</label>
+              <select id="rngMode">
+                <option value="off">Off</option>
+                <option value="die-tie">Die d6 (tiebreaker)</option>
+                <option value="die-always">Die d6 (always, no type advantage)</option>
+                <option value="rps-tie">Rock–Paper–Scissors (tiebreaker)</option>
+                <option value="rps-always">Rock–Paper–Scissors (always, no type advantage)</option>
+              </select>
+            </div>
+            <div class="controls">
+              <label class="inline"><input type="checkbox" id="pvpEffects" checked> PvP effects: Life/Economy target opponent (invert positives)</label>
+            </div>
+            <div class="badge">Advantage Matrix: Badge defeats Faction; Ticket defeats Badge; Faction defeats Ticket. Badge also trumps Jail Time, Blockade Order, Blacklist Notice. PvP mode makes non‑clash cards affect the opponent. </div>
+            <div class="turn" id="turnIndicator">Not dealt.</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <header>Deck and Discard</header>
+          <div class="body cols">
+            <div class="stack">
+              <h3>Deck (top on left)</h3>
+              <div id="deck" class="cards"></div>
+            </div>
+            <div class="stack">
+              <h3>Discard</h3>
+              <div id="discard" class="cards"></div>
+            </div>
+            <div class="stack">
+              <h3>Battlefield</h3>
+              <div class="battlefield">
+                <div id="bf1"></div>
+                <div id="bf2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <header>Log</header>
+          <div class="body">
+            <div id="log" class="log"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Player B Hand -->
+      <div class="col-right">
+        <div class="panel">
+          <header>Player B</header>
+          <div class="body pwrap">
+            <div class="scoreline">SCORE: <span id="scoreB" class="v">0</span> · BANK: <span id="bankB" class="v">0</span></div>
+            <div id="hand2" class="cards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === Types and Rules ===
+    const TYPES = { FACTION:'Faction', BADGE:'Badge', TICKET:'Ticket', LIFE:'LifeEvent', ECONOMY:'Economy' };
+
+    const ADV = {
+      [TYPES.BADGE]: TYPES.FACTION,
+      [TYPES.TICKET]: TYPES.BADGE,
+      [TYPES.FACTION]: TYPES.TICKET
+    };
+
+    // Special Badge dominance (neutral trump over certain cards)
+    const BADGE_TRUMP_NAMES = new Set(['Jail Time','Blockade Order','Blacklist Notice']);
+
+    // === Original 25 cards ===
+    const BASE_CARDS = [
+      {name:'Street Collective', type:TYPES.FACTION, power:5},
+      {name:'Dockside Crew', type:TYPES.FACTION, power:4},
+      {name:'Market Syndicate', type:TYPES.FACTION, power:6},
+      {name:'Rooftop Runners', type:TYPES.FACTION, power:3},
+      {name:'Breaker Unit', type:TYPES.FACTION, power:7},
+      {name:'Night Circle', type:TYPES.FACTION, power:5},
+      {name:'Iron Band', type:TYPES.FACTION, power:8},
+      {name:'Shadow Choir', type:TYPES.FACTION, power:6},
+      {name:'Canal Watch', type:TYPES.FACTION, power:4},
+      {name:'Signal Knot', type:TYPES.FACTION, power:7},
+      {name:'City Inspector', type:TYPES.BADGE, power:5},
+      {name:'Marshal\'s Seal', type:TYPES.BADGE, power:6},
+      {name:'Audit Dossier', type:TYPES.BADGE, power:4},
+      {name:'Informant File', type:TYPES.BADGE, power:3},
+      {name:'Blockade Order', type:TYPES.BADGE, power:7},
+      {name:'Warrant Stamp', type:TYPES.BADGE, power:6},
+      {name:'Detain Protocol', type:TYPES.BADGE, power:5},
+      {name:'Blacklist Notice', type:TYPES.BADGE, power:4},
+      {name:'Tariff Slip', type:TYPES.TICKET, power:3},
+      {name:'Summons Form', type:TYPES.TICKET, power:5},
+      {name:'Levy Bill', type:TYPES.TICKET, power:6},
+      {name:'Closure Citation', type:TYPES.TICKET, power:7},
+      {name:'Access Permit', type:TYPES.TICKET, power:4},
+      {name:'Fine Receipt', type:TYPES.TICKET, power:5},
+      {name:'Redline Notice', type:TYPES.TICKET, power:6}
+    ];
+
+    // === Life Event deck spec (+25 via copies) ===
+    const LIFE_SPEC = [
+      {name:'Jail Time',        scoreMod:-3, copies:2},
+      {name:'Addiction',        scoreMod:-2, copies:2},
+      {name:'Recovery',         scoreMod:+3, copies:2},
+      {name:'Divorce',          scoreMod:-2, copies:2},
+      {name:'Marriage',         scoreMod:+2, copies:1},
+      {name:'Payment Due',      scoreMod:-1, copies:3},
+      {name:'Rent Due',         scoreMod:-1, copies:4},
+      {name:'Utilities Bill',   scoreMod:-1, copies:3},
+      {name:'Groceries',        scoreMod:+1, copies:4},
+      {name:'Child Born',       scoreMod:+2, copies:1},
+      {name:'College Tuition',  scoreMod:-2, copies:1}
+    ];
+
+    // === Economy cards (BANK modifiers) ===
+    const ECON_CARDS = [
+      {name:'Get Job', bankMod:+2, copies:2},
+      {name:'Get Job Bonus', bankMod:+3, copies:2},
+      {name:'Commission Sale', bankMod:+4, copies:2}
+    ];
+
+    // === Art generators ===
+    function artFaction(theme){
+      const fill = theme==='fantasy' ? '#7c3aed' : '#00c853';
+      const extra = theme==='fantasy' ? '<circle cx="72" cy="40" r="8" fill="#a78bfa" />' : '';
+      return `<svg viewBox="0 0 120 120" width="100%" height="100%" aria-label="Faction">
+        <rect x="8" y="8" width="104" height="104" rx="16" fill="${fill}" opacity="0.15" />
+        <g fill="${fill}">
+          <circle cx="36" cy="40" r="12"/>
+          <rect x="34" y="52" width="4" height="28" rx="2"/>
+          <rect x="24" y="60" width="24" height="4" rx="2"/>
+          <circle cx="72" cy="36" r="12"/>
+          <rect x="70" y="48" width="4" height="30" rx="2"/>
+          <rect x="60" y="58" width="24" height="4" rx="2"/>
+        </g>
+        ${extra}
+      </svg>`;
+    }
+
+    function artBadge(theme){
+      const fill = theme==='fantasy' ? '#f59e0b' : '#22c55e';
+      const ribbon = theme==='fantasy' ? '#fcd34d' : '#86efac';
+      return `<svg viewBox="0 0 120 120" width="100%" height="100%" aria-label="Badge">
+        <circle cx="60" cy="54" r="28" fill="${fill}" />
+        <path d="M42 84 L54 110 L60 100 L66 110 L78 84" fill="${ribbon}" />
+      </svg>`;
+    }
+
+    function artTicket(theme){
+      const fill = theme==='fantasy' ? '#60a5fa' : '#10b981';
+      return `<svg viewBox="0 0 120 120" width="100%" height="100%" aria-label="Ticket">
+        <g transform="rotate(-18 60 60)">
+          <rect x="28" y="28" width="64" height="64" rx="8" fill="${fill}" />
+          <line x1="36" y1="42" x2="84" y2="42" stroke="#ffffff" stroke-width="3" opacity=".7" />
+          <line x1="36" y1="54" x2="84" y2="54" stroke="#ffffff" stroke-width="3" opacity=".7" />
+        </g>
+      </svg>`;
+    }
+
+    function artLife(theme){
+      const fill = theme==='fantasy' ? '#e11d48' : '#6366f1';
+      return `<svg viewBox="0 0 120 120" width="100%" height="100%" aria-label="LifeEvent">
+        <rect x="20" y="20" width="80" height="80" rx="12" fill="${fill}"/>
+      </svg>`;
+    }
+
+    function artEconomy(theme){
+      const fill = theme==='fantasy' ? '#fbbf24' : '#f59e0b';
+      return `<svg viewBox="0 0 120 120" width="100%" height="100%" aria-label="Economy">
+        <g fill="${fill}">
+          <circle cx="46" cy="64" r="14"/>
+          <circle cx="70" cy="54" r="14"/>
+          <rect x="38" y="78" width="52" height="8" rx="4"/>
+        </g>
+      </svg>`;
+    }
+
+    function svgFor(type, theme){
+      if(type===TYPES.FACTION) return artFaction(theme);
+      if(type===TYPES.BADGE)   return artBadge(theme);
+      if(type===TYPES.TICKET)  return artTicket(theme);
+      if(type===TYPES.LIFE)    return artLife(theme);
+      if(type===TYPES.ECONOMY) return artEconomy(theme);
+    }
+
+    // === State ===
+    let deck = []; let discard = [];
+    const players = [ {hand:[], score:0, bank:0}, {hand:[], score:0, bank:0} ];
+    let turn = null; // 0 for A, 1 for B
+    let bf = [null, null];
+
+    // === Bank actions (modular and configurable) ===
+    const BANK_ACTIONS = [
+      { key:'draw2', name:'Spend 5 → Draw 2 cards', cost:5, effect:(p)=>{ drawN(p,2); } },
+      { key:'score1', name:'Spend 3 → +1 SCORE', cost:3, effect:(p)=>{ players[p].score += 1; } }
+      // New actions can be added here easily
+    ];
+
+    function populateBankActions(){
+      const sel = document.getElementById('bankAction');
+      sel.innerHTML = '';
+      BANK_ACTIONS.forEach(a=>{
+        const opt = document.createElement('option');
+        opt.value = a.key; opt.textContent = a.name;
+        sel.appendChild(opt);
+      });
+    }
+
+    // === UI helpers ===
+    function setTurnText(){
+      const t = document.getElementById('turnIndicator');
+      if(turn===null) t.textContent = 'Not dealt.';
+      else t.textContent = turn===0 ? 'Player A turn: click a card to play or spend BANK.' : 'Player B turn: click a card to play or spend BANK.';
+    }
+
+    function log(msg){
+      const el = document.getElementById('log');
+      el.textContent += msg + "\n";
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function cardHTML(card){
+      const extra = card.scoreMod!==undefined ? ` • Mod ${card.scoreMod}` : (card.bankMod!==undefined ? ` • Bank +${card.bankMod}` : '');
+      return `<div class=\"art\">${card.art}</div><div class=\"meta\"><div class=\"name\">${card.name}</div><div class=\"tags\">${card.type} • Power ${card.power}${extra}</div></div>`;
+    }
+
+    function renderStack(id,cards){
+      const c = document.getElementById(id); c.innerHTML = '';
+      cards.forEach(card=>{ const el=document.createElement('div'); el.className='card'; el.innerHTML=cardHTML(card); c.appendChild(el); });
+    }
+
+    function renderHand(idx){
+      const containerId = idx===0 ? 'hand1' : 'hand2';
+      const c = document.getElementById(containerId);
+      c.innerHTML = '';
+      players[idx].hand.forEach((card, i)=>{
+        const el = document.createElement('div');
+        const canPlay = (turn===idx) && (bf[idx]===null);
+        el.className = 'card' + (canPlay ? ' clickable' : '');
+        el.innerHTML = cardHTML(card);
+        if(canPlay){ el.addEventListener('click', ()=> playCard(idx, i)); }
+        c.appendChild(el);
+      });
+    }
+
+    function renderAll(){
+      renderStack('deck', deck);
+      renderStack('discard', discard);
+      renderHand(0); renderHand(1);
+      updateScoreboard();
+    }
+
+    function updateScoreboard(){
+      document.getElementById('scoreA').textContent = players[0].score;
+      document.getElementById('bankA').textContent  = players[0].bank;
+      document.getElementById('scoreB').textContent = players[1].score;
+      document.getElementById('bankB').textContent  = players[1].bank;
+    }
+
+    // === Deck building ===
+    function expandLife(theme){
+      const res = [];
+      LIFE_SPEC.forEach(spec=>{ for(let i=0;i<spec.copies;i++){ res.push({ name:spec.name, type:TYPES.LIFE, power:0, scoreMod:spec.scoreMod, art: artLife(theme) }); } });
+      return res;
+    }
+
+    function expandEconomy(theme){
+      const res = [];
+      ECON_CARDS.forEach(spec=>{ for(let i=0;i<spec.copies;i++){ res.push({ name:spec.name, type:TYPES.ECONOMY, power:0, bankMod:spec.bankMod, art: artEconomy(theme) }); } });
+      return res;
+    }
+
+    function buildDeck(theme){
+      const base = BASE_CARDS.map((c,i)=>({ id:i+1, ...c, art: svgFor(c.type, theme) }));
+      const life = expandLife(theme);
+      const econ = expandEconomy(theme);
+      return base.concat(life, econ); // 25 + 25 + 6 = 56
+    }
+
+    // Fisher–Yates shuffle
+    function shuffleInPlace(arr){
+      for(let i = arr.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+      return arr;
+    }
+
+    // Deal exactly 8 cards to each player
+    function dealEightEach(){
+      if(deck.length < 16){ log('Not enough cards in deck to deal 8 to each player.'); return; }
+      players[0].hand = []; players[1].hand = [];
+      for(let i=0;i<16;i++){ const card = deck.shift(); players[i%2].hand.push(card); }
+      turn = 0; bf = [null, null]; setTurnText();
+      document.getElementById('nextRound').disabled = false;
+      document.getElementById('resetScores').disabled = false;
+      document.getElementById('spendBank').disabled = false;
+    }
+
+    // === Randomizers ===
+    function rngMode(){ return document.getElementById('rngMode').value; }
+    function die(){ return 1 + Math.floor(Math.random()*6); }
+    function rpsThrow(){ return ['rock','paper','scissors'][Math.floor(Math.random()*3)]; }
+    function rpsCompare(a,b){
+      if(a===b) return 0;
+      if((a==='rock'&&b==='scissors')||(a==='scissors'&&b==='paper')||(a==='paper'&&b==='rock')) return 1;
+      return -1;
+    }
+
+    function hasTypeAdvantage(a,b){
+      return (ADV[a.type]===b.type) || (ADV[b.type]===a.type);
+    }
+
+    function baseCompare(a,b){
+      if(ADV[a.type] === b.type && ADV[b.type] !== a.type) return 1;
+      if(ADV[b.type] === a.type && ADV[a.type] !== b.type) return -1;
+      if(a.type === b.type){ if(a.power > b.power) return 1; if(b.power > a.power) return -1; return 0; }
+      if(a.power > b.power) return 1; if(b.power > a.power) return -1; return 0;
+    }
+
+    function compareWithRandomizers(a,b){
+      // Special Badge dominance first
+      if(a.type===TYPES.BADGE && (b.type===TYPES.FACTION || BADGE_TRUMP_NAMES.has(b.name))) return 1;
+      if(b.type===TYPES.BADGE && (a.type===TYPES.FACTION || BADGE_TRUMP_NAMES.has(a.name))) return -1;
+
+      const mode = rngMode();
+      const advantagePresent = hasTypeAdvantage(a,b);
+
+      // If type advantage exists, keep deterministic result (randomizer only runs when no type advantage)
+      if(advantagePresent){
+        return baseCompare(a,b);
+      }
+
+      // No type advantage: either same type or neutral; we may invoke randomizers
+      if(mode==='off') return baseCompare(a,b);
+
+      if(mode.startsWith('die')){
+        // Die: either tiebreaker or always (on neutral interactions)
+        const aRoll = die(); const bRoll = die();
+        log(`Randomizer (Die): A rolled ${aRoll}, B rolled ${bRoll}.`);
+        const always = mode.endsWith('always');
+        if(always){
+          const aScore = (a.power||0) + aRoll;
+          const bScore = (b.power||0) + bRoll;
+          if(aScore>bScore) return 1; if(bScore>aScore) return -1; return 0;
+        } else {
+          // tiebreaker: only decide if baseCompare is a tie
+          const base = baseCompare(a,b);
+          if(base!==0) return base;
+          if(aRoll>bRoll) return 1; if(bRoll>aRoll) return -1; return 0;
+        }
+      }
+
+      if(mode.startsWith('rps')){
+        const aT = rpsThrow(); const bT = rpsThrow();
+        const res = rpsCompare(aT,bT);
+        log(`Randomizer (RPS): A=${aT}, B=${bT}${res===0?' (tie)': res>0?' (A wins)':' (B wins)'} .`);
+        const always = mode.endsWith('always');
+        if(always){ return res; }
+        // tiebreaker
+        const base = baseCompare(a,b);
+        if(base!==0) return base;
+        return res; // may be 0; tie remains tie
+      }
+
+      // Default fallback
+      return baseCompare(a,b);
+    }
+
+    function drawN(playerIdx, n){
+      for(let k=0;k<n;k++){
+        if(deck.length===0){ log('Deck is empty.'); return; }
+        players[playerIdx].hand.push(deck.shift());
+      }
+      renderHand(playerIdx);
+    }
+
+    function pvpToggle(){ return document.getElementById('pvpEffects').checked; }
+
+    function playCard(playerIdx, handIndex){
+      const card = players[playerIdx].hand.splice(handIndex,1)[0];
+      const bfId = playerIdx===0 ? 'bf1' : 'bf2';
+      const bfSlot = playerIdx; // 0 or 1
+      const opponent = 1 - playerIdx;
+
+      if(card.type === TYPES.LIFE){
+        let delta = card.scoreMod || 0;
+        if(pvpToggle()){
+          // PvP: apply to opponent; invert positives to be adversarial
+          if(delta > 0) delta = -delta;
+          players[opponent].score += delta;
+          log(`PvP Life event: ${card.name} applied to Player ${opponent===0?'A':'B'} (SCORE ${delta>=0?'+':''}${delta}).`);
+        } else {
+          players[playerIdx].score += delta;
+          log(`Life event for Player ${playerIdx===0?'A':'B'}: ${card.name} modifies SCORE by ${delta}.`);
+        }
+        discard.push(card);
+      } else if(card.type === TYPES.ECONOMY){
+        let delta = card.bankMod || 0;
+        if(pvpToggle()){
+          // PvP: reduce opponent BANK (not below 0)
+          const before = players[opponent].bank;
+          players[opponent].bank = Math.max(0, players[opponent].bank - delta);
+          const actual = players[opponent].bank - before; // negative or zero
+          log(`PvP Economy: ${card.name} reduces Player ${opponent===0?'A':'B'} BANK by ${-actual || delta}.`);
+        } else {
+          players[playerIdx].bank += delta;
+          log(`Economy for Player ${playerIdx===0?'A':'B'}: ${card.name} increases BANK by ${delta}.`);
+        }
+        discard.push(card);
+      } else {
+        bf[bfSlot] = card;
+        const el = document.createElement('div'); el.className = 'card'; el.innerHTML = cardHTML(card);
+        document.getElementById(bfId).innerHTML = ''; document.getElementById(bfId).appendChild(el);
+      }
+
+      // Advance turn
+      turn = 1 - playerIdx; setTurnText();
+
+      // Resolve clash if both have played
+      if(bf[0] && bf[1]){
+        const a = bf[0], b = bf[1];
+        const cmp = compareWithRandomizers(a, b);
+        if(cmp > 0){ players[0].score += 1; log(`Player A wins the clash: ${a.name} (${a.type}, ${a.power}) vs ${b.name} (${b.type}, ${b.power}).`); }
+        else if(cmp < 0){ players[1].score += 1; log(`Player B wins the clash: ${b.name} (${b.type}, ${b.power}) vs ${a.name} (${a.type}, ${a.power}).`); }
+        else { log(`Tie after modifiers.`); }
+        discard.push(a, b); bf = [null, null];
+        document.getElementById('bf1').innerHTML = ''; document.getElementById('bf2').innerHTML = '';
+      }
+
+      // End of round when hands empty
+      if(players[0].hand.length === 0 && players[1].hand.length === 0){
+        log(`Round finished — A SCORE: ${players[0].score}, B SCORE: ${players[1].score}. BANK persists.`);
+        turn = null; setTurnText();
+      }
+
+      updateScoreboard();
+      renderHand(0); renderHand(1);
+      renderStack('discard', discard);
+    }
+
+    function spendSelected(){
+      if(turn===null){ log('No active turn. Deal cards first.'); return; }
+      const actionKey = document.getElementById('bankAction').value;
+      const action = BANK_ACTIONS.find(a=>a.key===actionKey);
+      const p = turn;
+      if(!action){ log('No action selected.'); return; }
+      if(players[p].bank < action.cost){ log(`Player ${p===0?'A':'B'} doesn't have enough BANK.`); return; }
+      players[p].bank -= action.cost;
+      action.effect(p);
+      log(`Player ${p===0?'A':'B'} spent ${action.cost} BANK to ${action.name.replace(/^[^–]+–\s*/,'')}.`);
+      updateScoreboard();
+    }
+
+    function resetScores(){
+      players[0].score = 0; players[1].score = 0;
+      log('Scores have been reset for both players.');
+      updateScoreboard();
+    }
+
+    function nextRound(){
+      const auto = document.getElementById('autoReset').checked;
+      if(auto){ players[0].score = 0; players[1].score = 0; log('Auto reset: Scores cleared for new round.'); }
+      if(deck.length < 16){ log('Not enough cards remaining to deal 8 each for a new round.'); return; }
+      dealEightEach();
+      renderAll();
+      log('New round has started. Player A begins.');
+    }
+
+    // === Controls ===
+    const makeBtn = document.getElementById('makeDeck');
+    const shuffleBtn = document.getElementById('shuffle');
+    const dealBtn = document.getElementById('deal');
+    const nextRoundBtn = document.getElementById('nextRound');
+    const resetScoresBtn = document.getElementById('resetScores');
+    const spendBtn = document.getElementById('spendBank');
+
+    makeBtn.addEventListener('click', ()=>{
+      const theme = document.getElementById('mode').value;
+      deck = buildDeck(theme);
+      discard = [];
+      players[0].hand = []; players[1].hand = [];
+      players[0].score = 0; players[1].score = 0; players[0].bank = 0; players[1].bank = 0;
+      bf = [null, null]; turn = null; setTurnText(); populateBankActions();
+      renderAll();
+      document.getElementById('bf1').innerHTML = '';
+      document.getElementById('bf2').innerHTML = '';
+      log(`Built a ${theme} themed deck of ${deck.length} cards.`);
+      shuffleBtn.disabled = false; dealBtn.disabled = true; nextRoundBtn.disabled = true; resetScoresBtn.disabled = true; spendBtn.disabled = true;
+    });
+
+    shuffleBtn.addEventListener('click', ()=>{ shuffleInPlace(deck); renderAll(); log('Deck has been shuffled.'); dealBtn.disabled = false; });
+    dealBtn.addEventListener('click', ()=>{ dealEightEach(); renderAll(); log(`Dealt 8 each. Player A has ${players[0].hand.length}. Player B has ${players[1].hand.length}. Player A starts.`); });
+    nextRoundBtn.addEventListener('click', ()=>{ nextRound(); });
+    resetScoresBtn.addEventListener('click', ()=>{ resetScores(); });
+    spendBtn.addEventListener('click', ()=>{ spendSelected(); });
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('makeDeck').click(); });
+  </script>
+</body>
+</html>
