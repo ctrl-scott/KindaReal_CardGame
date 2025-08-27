@@ -19,11 +19,9 @@ Here’s the full attribution list. Short version: everything was authored in th
 * **Accessibility pattern**
   Basic WAI-ARIA live region pattern (`aria-live="assertive"`) for log announcements; implemented directly.
 
-# This is based off of [https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190](this chat) which is disconnected from other chats used to create the game (which I will list below).
+This is based off of [https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190] which is disconnected from other chats used to create the game (which I will list below).
 
-# The below sources will be from prior chats of the game design, [https://chatgpt.com/share/68aef260-e274-800c-b7cb-753ef2b744f4](that chat is located here).
-
-Of course 👍 — here is a compiled **APA-style reference list** of the sources I drew upon when suggesting realistic self-help, negative events, and economy card types for your expanded \~100-card deck:
+The below sources will be from prior chats of the game design, [https://chatgpt.com/share/68aef260-e274-800c-b7cb-753ef2b744f4].
 
 ---
 
