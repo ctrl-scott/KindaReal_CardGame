@@ -323,3 +323,5 @@ function drawOneIfMyTurn(p){
 * **Ordering first, randomness second:** The ranked matrix (Attorney > Badge > Faction > Ticket) ensures most outcomes are deterministic; randomizers only engage for **ties** unless explicitly set to “always”.
 
 If you’d like, I can inline **JSDoc** above each of these functions in your source so future contributors see the math rationale right where it’s used.
+
+[https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190](https://chatgpt.com/share/68aeff40-0270-800c-ac85-44a8b5d3d190)
