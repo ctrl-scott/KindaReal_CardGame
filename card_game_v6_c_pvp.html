@@ -276,17 +276,17 @@ const LIFE_SPEC=[
 
 // === Life: Self-help (forced self) ===
 const LIFE_SELF_SPEC=[
-  {name:'Therapy Session',scoreMod:+2,copies:2,target:'self'},
-  {name:'Support Group',scoreMod:+2,copies:2,target:'self'},
-  {name:'Exercise Routine',scoreMod:+1,copies:3,target:'self'},
-  {name:'Sleep Hygiene',scoreMod:+1,copies:2,target:'self'},
-  {name:'Mindfulness Practice',scoreMod:+1,copies:3,target:'self'},
-  {name:'New Skill Course',scoreMod:+2,copies:2,target:'self'},
-  {name:'Stable Housing',scoreMod:+2,copies:1,target:'self'},
-  {name:'Financial Counseling',scoreMod:+1,copies:2,target:'self'},
-  {name:'Healthy Diet',scoreMod:+1,copies:2,target:'self'},
-  {name:'Disclosure (Exculpatory)', scoreMod:+2, copies:2, target:'self' },
-  {name:'Constitutional Amendments (Protected Right)', scoreMod:+2, copies:2, target:'self' }
+  {name:'Therapy Session',scoreMod:+2,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Support Group',scoreMod:+2,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Exercise Routine',scoreMod:+1,copies:3,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Sleep Hygiene',scoreMod:+1,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Mindfulness Practice',scoreMod:+1,copies:3,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'New Skill Course',scoreMod:+2,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Stable Housing',scoreMod:+2,copies:1,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Financial Counseling',scoreMod:+1,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Healthy Diet',scoreMod:+1,copies:2,target:'self', bg:'img/life_self_spec_bg.png'},
+  {name:'Disclosure (Exculpatory)', scoreMod:+2, copies:2, target:'self', bg:'img/life_self_spec_bg.png' },
+  {name:'Constitutional Amendments (Protected Right)', scoreMod:+2, copies:2, target:'self', bg:'img/life_self_spec_bg.png' }
 ];
 
 // === Life: Opponent-negative (forced opponent) ===
@@ -420,7 +420,12 @@ function updateTurnControls(){
 
 // === Build deck ===
 function expandLife(theme){
-  const res=[]; const push=s=>{for(let i=0;i<s.copies;i++){res.push({name:s.name,type:TYPES.LIFE,power:0,scoreMod:s.scoreMod,bankMod:s.bankMod,target:s.target,art:artLife(theme)});}};
+  const res=[]; const push=s=>{for(let i=0;i<s.copies;i++){res.push({name:s.name,type:TYPES.LIFE,power:0,scoreMod:s.scoreMod,bankMod:s.bankMod,target:s.target,art: s.bg 
+          ? `<div style="width:100%;height:100%;background:url('${s.bg}') center/cover no-repeat;border-radius:12px"></div>` 
+          : artLife(theme)
+      });
+    }
+  };
   [...LIFE_SPEC, ...LIFE_SELF_SPEC, ...LIFE_OPP_SPEC, ...FACTION_EVENTS].forEach(push);
   return res;
 }
